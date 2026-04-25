@@ -131,18 +131,13 @@ def main():
     # symmetric quantization to depthwise conv2d only
     elif args.quant_type == "depthwise":
         print(f"Quantizing depthwise nn.Conv2d layers to {args.bits}-bit...")
-        quantize_depthwise_conv2d(
-            model,
-            bits=args.bits,
-            asymmetric_acts=False,
-        )
+        quantize_depthwise_conv2d(model, bits=args.bits, asymmetric_acts=False)
         replaced = find_quantized_layers(model, QuantizedConv2d)
         print(f"Quantized {len(replaced)} depthwise layers to {args.bits}-bit")
         if len(replaced) > 0:
             print("First few quantized depthwise layers:")
             for i, name in enumerate(replaced.keys()):
-                if i >= 10:
-                    break
+                if i >= 10: break
                 print(f"  {name}")
     # symmetric quant to linear & conv2d
     elif args.quant_type == "absmax":
