@@ -9,7 +9,16 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 
-from quantize import load_pretrained_vit, quantize_model, QuantizedLinear, InputQuantizedWrapper, find_quantized_layers,  GPTQLinear, QuantizedConv2d
+from quantize import (
+    load_pretrained_vit,
+    quantize_model,
+    QuantizedLinear,
+    InputQuantizedWrapper,
+    find_quantized_layers,
+    GPTQLinear,
+    QuantizedConv2d,
+    quantize_depthwise_conv2d,
+)
 from timm.layers import LayerNorm2d
 
 
@@ -67,6 +76,7 @@ def main():
             "Type of quantization to run\n"
             "* linear     – symmetric per-channel weight + per-token activation (nn.Linear only)\n"
             "* conv2d     – symmetric per-channel weight + per-token activation (nn.Conv2d only)\n" 
+            "* depthwise  – symmetric per-channel weight + per-token activation (depthwise nn.Conv2d only)\n"
             "* absmax     – symmetric per-channel weight + per-token activation (nn.Linear and nn.Conv2d)\n" 
             "* asymm      – symmetric quantizaion for weights, asymmetric quantization for inputs (nn.Linear and nn.Conv2d)\n"
             "* all        – symmetric quantization of nn.Linear, nn.Conv2d, nn.LayerNorm\n"
@@ -118,6 +128,22 @@ def main():
         quantize_model(model, [(nn.Conv2d, QuantizedConv2d, {"bits": args.bits})])
         replaced = find_quantized_layers(model, QuantizedConv2d)
         print(f"Quantized {len(replaced)} layers to {args.bits}-bit")
+    # symmetric quantization to depthwise conv2d only
+    elif args.quant_type == "depthwise":
+        print(f"Quantizing depthwise nn.Conv2d layers to {args.bits}-bit...")
+        quantize_depthwise_conv2d(
+            model,
+            bits=args.bits,
+            asymmetric_acts=False,
+        )
+        replaced = find_quantized_layers(model, QuantizedConv2d)
+        print(f"Quantized {len(replaced)} depthwise layers to {args.bits}-bit")
+        if len(replaced) > 0:
+            print("First few quantized depthwise layers:")
+            for i, name in enumerate(replaced.keys()):
+                if i >= 10:
+                    break
+                print(f"  {name}")
     # symmetric quant to linear & conv2d
     elif args.quant_type == "absmax":
         print(f"Quantizing nn.Linear, nn.Conv2d layers to {args.bits}-bit...")
@@ -181,7 +207,7 @@ def main():
     else:
         raise ValueError(
             f"Unknown --quant-type '{args.quant_type}'. "
-            "Choose from: linear / all / gptq"
+            "Choose from: linear / conv2d / depthwise / absmax / asymm / all / gptq / layernorm"
         )
     print(model)
 
