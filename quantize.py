@@ -497,6 +497,30 @@ def find_quantized_layers(model, replacement_cls, name: str = ""):
             result.update(find_quantized_layers(child, replacement_cls, full_name))
     return result
 
+def quantize_depthwise_conv2d(model, bits: int = 8, asymmetric_acts: bool = False, name: str = ""):
+    """
+    Recursively replace only depthwise Conv2d layers with QuantizedConv2d.
+
+    A depthwise convolution is identified by:
+        isinstance(layer, nn.Conv2d) and layer.groups == layer.in_channels
+    """
+    for child_name, child in list(model.named_children()):
+        full_name = f"{name}.{child_name}" if name else child_name
+
+        if isinstance(child, nn.Conv2d) and child.groups == child.in_channels:
+            setattr(
+                model,
+                child_name,
+                QuantizedConv2d(child, bits=bits, asymmetric_acts=asymmetric_acts),
+            )
+        else:
+            quantize_depthwise_conv2d(
+                child,
+                bits=bits,
+                asymmetric_acts=asymmetric_acts,
+                name=full_name,
+            )
+
 
 if __name__ == "__main__":
     print("Loading pre-trained ViT-B/16 from timm (ImageNet-1K)...")
